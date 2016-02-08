@@ -12,7 +12,7 @@ public class DataSet<T> : IComparable<DataSet<T>>
 
     public DataSet(T next, T current, int distTraveled, int estCost){
         this.current=next;
-        this.estCost=estCost+distTraveled;      //Est Remaining distance+ distance already traveled. The estimated distance should be a minimum to give the most accurate path.
+        this.estCost=estCost+distTraveled;      //Est Remaining distance+ distance already traveled
         this.prev=current;
         this.distTraveled = distTraveled;
         }

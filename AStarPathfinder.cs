@@ -11,6 +11,9 @@ public class AStarPathfinder<T> where T : class, TilePathfinderInterface<T>
 
     private IComparer<DataSet<T>> Comparer;
 
+    /// <summary>
+    /// Get an instance of the pathfinder. The tile should be passed as a function
+    /// </summary>
     public static AStarPathfinder<T> Instance
     {
         get{
@@ -31,6 +34,13 @@ public class AStarPathfinder<T> where T : class, TilePathfinderInterface<T>
         Comparer = Comparer<DataSet<T>>.Default;
     }
 
+
+    /// <summary>
+    /// Find a path from the current tile to the destination. Assumes there is a path to the destination
+    /// </summary>
+    /// <param name="cur">The start tile</param>
+    /// <param name="dest">The end tile</param>
+    /// <returns></returns>
     public List<T> FindPath(T cur, T dest)
     {
         neighborHeap.Clear();
@@ -38,18 +48,29 @@ public class AStarPathfinder<T> where T : class, TilePathfinderInterface<T>
         tested.Clear();
         fullDataTraveled.Clear();
 
-        List<DataSet<T>> set;
+        Dictionary<T,int> set;
+        Dictionary<T, int> heuristics=new Dictionary<T, int>();
         DataSet<T> curTest = new DataSet<T>(cur,null,0, 0);
         fullDataTraveled.Add(cur, curTest);
 
         while (curTest.current != dest)
         {
             visited.Add(curTest.current);
-            set = curTest.current.GetNeighborsAstarDistance(dest,curTest.distTraveled);
-            foreach (DataSet<T> ds in set)
+            set = curTest.current.GetNeighborsAstarDistance();
+            foreach (T neighbor in set.Keys)
             {
- //               if (!visited.Contains(ds.current) && !tested.Contains(ds.current))
- //               {
+                int distanceTo = curTest.distTraveled + set[neighbor];
+                int heuristic = 0;
+                if (heuristics.ContainsKey(neighbor))
+                {
+                    heuristic = heuristics[neighbor];
+                } else
+                {
+                    heuristic = neighbor.GetAstarHeuristic(dest);
+                    heuristics.Add(neighbor, heuristic);
+                }
+
+                DataSet<T> ds = new DataSet<T>(neighbor, curTest.current, distanceTo, distanceTo+heuristic);
                 tested.Add(ds.current);
                 if (fullDataTraveled.ContainsKey(ds.current))
                 {
