@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-public class AStarPathfinder<T> where T : class, TilePathfinderInterface<T>
+public class AStarPathfinder<T> where T : class, TilePathfinder<T>
 {
 
     private MinHeap<DataSet<T>> neighborHeap;

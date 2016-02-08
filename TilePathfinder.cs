@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-public interface TilePathfinderInterface<T> where T : class, TilePathfinderInterface<T>
+public interface TilePathfinder<T>
 {
     /// <summary>
     /// This function should return a dictionary of all accessible neighbor nodes, with their associated distances.
