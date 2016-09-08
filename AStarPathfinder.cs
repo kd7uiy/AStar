@@ -64,21 +64,29 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
 
 
     int[] heuristics=new int[0];
-    int[] blank;
+    int[] blankHeuristics;
+    DataSet<T>[] blankTraveled;
     private DataSet<T> PopulatePath(T cur, T dest, float tweakParam)
     {
         orderedTestList.Clear();
         visited.Clear();
-        fullDataTraveled = new DataSet<T>[cur.MaxAStarIndex()];
+        if (heuristics.Length != cur.MaxAStarIndex())
+        {
+            fullDataTraveled = new DataSet<T>[cur.MaxAStarIndex()];
+            blankTraveled = new DataSet<T>[cur.MaxAStarIndex()];
+        } else
+        {
+            Array.Copy(blankTraveled, fullDataTraveled, cur.MaxAStarIndex());
+        }
 
-        Tuple<T, int>[] set;
+            Tuple<T, int>[] set;
         if (heuristics.Length != cur.MaxAStarIndex())
         {
             heuristics = new int[cur.MaxAStarIndex()];
-            blank = new int[cur.MaxAStarIndex()];
+            blankHeuristics = new int[cur.MaxAStarIndex()];
         } else
         {
-            Array.Copy(blank, heuristics, cur.MaxAStarIndex());
+            Array.Copy(blankHeuristics, heuristics, cur.MaxAStarIndex());
         }
         DataSet<T> curTest = new DataSet<T>(cur, null, 0, 0);
         fullDataTraveled[cur.AStarIndex()]= curTest;
