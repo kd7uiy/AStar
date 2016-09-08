@@ -1,15 +1,14 @@
-﻿using System;
+﻿using Priority_Queue;
+using System;
 using System.Collections.Generic;
-using Wintellect.PowerCollections;
 
 public class AStarPathfinder<T> where T : class, IAstarNode<T>
 {
 
-    private OrderedBag<DataSet<T>> orderedTestList;
+    private FastPriorityQueue<DataSet<T>> orderedTestList;
     private static AStarPathfinder<T> _instance;
     private List<T> visited;
-    //TODO: Consider converting this to a Tuple structure, to improve speed.
-    private Dictionary<T,DataSet<T>> fullDataTraveled;
+    private DataSet<T>[] fullDataTraveled=null;
 
     private IComparer<DataSet<T>> Comparer;
 
@@ -29,8 +28,7 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
 
     private AStarPathfinder()
     {
-        orderedTestList = new OrderedBag<DataSet<T>>();
-        fullDataTraveled = new Dictionary<T, DataSet<T>>();
+        orderedTestList = new FastPriorityQueue<DataSet<T>>(16);
         visited = new List<T>();
         Comparer = Comparer<DataSet<T>>.Default;
     }
@@ -59,7 +57,7 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
         while (curTest.prev != null)
         {
             ret.Insert(0, curTest.current);
-            curTest = fullDataTraveled[curTest.prev];
+            curTest = fullDataTraveled[curTest.prev.AStarIndex()];
         }
         return ret;
     }
@@ -71,7 +69,7 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
     {
         orderedTestList.Clear();
         visited.Clear();
-        fullDataTraveled.Clear();
+        fullDataTraveled = new DataSet<T>[cur.MaxAStarIndex()];
 
         Tuple<T, int>[] set;
         if (heuristics.Length != cur.MaxAStarIndex())
@@ -83,7 +81,7 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
             Array.Copy(blank, heuristics, cur.MaxAStarIndex());
         }
         DataSet<T> curTest = new DataSet<T>(cur, null, 0, 0);
-        fullDataTraveled.Add(cur, curTest);
+        fullDataTraveled[cur.AStarIndex()]= curTest;
 
         while (curTest.current != dest)
         {
@@ -104,34 +102,43 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
                 }
 
                 DataSet<T> ds = new DataSet<T>(neighbor.First, curTest.current, distanceTo, distanceTo + heuristic);
-                if (fullDataTraveled.ContainsKey(neighbor.First))
+                if (fullDataTraveled[neighbor.First.AStarIndex()]!=null)
                 {
                     //A quicker path was found to the tile
-                    if (Comparer.Compare(ds, fullDataTraveled[neighbor.First]) < 0)
+                    if (Comparer.Compare(ds, fullDataTraveled[neighbor.First.AStarIndex()]) < 0)
                     {
-                        orderedTestList.Remove(fullDataTraveled[neighbor.First]);
-                        fullDataTraveled[neighbor.First] = ds;
-                        orderedTestList.Add(ds);
+                        orderedTestList.Remove(fullDataTraveled[neighbor.First.AStarIndex()]);
+                        fullDataTraveled[neighbor.First.AStarIndex()] = ds;
+                        Enqueue(ds);
                     }
                 }
                 else
                 {
-                    fullDataTraveled.Add(neighbor.First, ds);
-                    orderedTestList.Add(ds);
+                    fullDataTraveled[neighbor.First.AStarIndex()] = ds;
+                    Enqueue(ds);
                 }
 
             }
             try
             {
-                curTest = orderedTestList.RemoveFirst();
+                curTest = orderedTestList.Dequeue();
             }
             catch (InvalidOperationException)
             {
-                curTest = fullDataTraveled[dest];
+                curTest = fullDataTraveled[dest.AStarIndex()];
                 break;
             }
         }
 
         return curTest;
+    }
+
+    private void Enqueue(DataSet<T> ds)
+    {
+        if (orderedTestList.Count==orderedTestList.MaxSize)
+        {
+            orderedTestList.Resize(orderedTestList.MaxSize * 2);
+        }
+        orderedTestList.Enqueue(ds, ds.Priority);
     }
 }

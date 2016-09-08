@@ -1,7 +1,8 @@
-﻿using System;
+﻿using Priority_Queue;
+using System;
 using System.Text;
 
-public class DataSet<T> : IComparable<DataSet<T>>
+public class DataSet<T> : FastPriorityQueueNode, IComparable<DataSet<T>>
 {
 
     public T current;
@@ -14,6 +15,8 @@ public class DataSet<T> : IComparable<DataSet<T>>
         this.estCost=estCost+distTraveled;      //Est Remaining distance+ distance already traveled
         this.prev=current;
         this.distTraveled = distTraveled;
+
+        Priority = estCost;
         }
 
     public int CompareTo(DataSet<T> other)
