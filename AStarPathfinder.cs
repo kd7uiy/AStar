@@ -54,6 +54,80 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
             throw new TimeoutException("Failed to obtain mutex lock");
         }
     }
+    /*
+    /// <summary>
+    /// Finds the distance to multiples tile, given Dijkstra's method
+    /// </summary>
+    /// <param name="cur">The start tile</param>
+    /// <param name="dest">The end tile</param>
+    /// <returns></returns>
+    public int[] DistanceTo(T cur, T[] dest, float tweakParam)
+    {
+        List<int> destIndex = new List<int>();
+        int numLeft = dest.Length;
+        int[] ret = new int[dest.Length];       //TODO Consider intializing to an invalid value
+        for (int i = 0; i < dest.Length; i++)
+        {
+            destIndex.Add(dest[i].AStarIndex);
+        }
+        if (mut.WaitOne(MUTEX_TIMEOUT))
+        {
+            orderedTestList.Clear();
+            if (heuristics.Length != cur.MaxAStarIndex())
+            {
+                fullDataTraveled = new DataSet<T>[cur.MaxAStarIndex()];
+                blankTraveled = new DataSet<T>[cur.MaxAStarIndex()];
+            }
+            else
+            {
+                Array.Copy(blankTraveled, fullDataTraveled, cur.MaxAStarIndex());
+            }
+
+            Tuple<T, int>[] set;
+
+            DataSet<T> curTest = new DataSet<T>(cur, null, 0, 0);
+            fullDataTraveled[cur.AStarIndex] = curTest;
+
+            DataSet<T> ds;
+            int distanceTo;
+            while (numLeft>0 && orderedTestList.Count>0)
+            {
+                if (destIndex.Contains(curTest.current.AStarIndex))
+                {
+                    ret[destIndex.IndexOf(curTest.current.AStarIndex)] = curTest.distTraveled;
+                    numLeft -= 1;
+                }
+
+                set = curTest.current.GetNeighborsAstarDistance(tweakParam);
+                foreach (Tuple<T, int> neighbor in set)
+                {
+                    distanceTo = curTest.distTraveled + neighbor.Second;
+
+                    ds = new DataSet<T>(neighbor.First, curTest.current, distanceTo, distanceTo);
+                    if (fullDataTraveled[neighbor.First.AStarIndex] != null)
+                    {
+                        //A quicker path was found to the tile
+                        if (Comparer.Compare(ds, fullDataTraveled[neighbor.First.AStarIndex]) < 0)
+                        {
+                            orderedTestList.Remove(fullDataTraveled[neighbor.First.AStarIndex]);
+                            fullDataTraveled[neighbor.First.AStarIndex] = ds;
+                            Enqueue(ds);
+                        }
+                    }
+                    else
+                    {
+                        fullDataTraveled[neighbor.First.AStarIndex] = ds;
+                        Enqueue(ds);
+                    }
+
+                }
+                curTest = orderedTestList.Dequeue();
+            }
+        }
+        mut.ReleaseMutex();
+        return ret;
+    }
+    */
 
     /// <summary>
     /// Find a path from the current tile to the destination. Assumes there is a path to the destination
@@ -117,23 +191,23 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
     private DataSet<T> PopulatePath(T cur, T dest, float tweakParam)
     {
         orderedTestList.Clear();
-        if (heuristics.Length != cur.MaxAStarIndex())
+        if (heuristics.Length != cur.MaxAStarIndex)
         {
-            fullDataTraveled = new DataSet<T>[cur.MaxAStarIndex()];
-            blankTraveled = new DataSet<T>[cur.MaxAStarIndex()];
+            fullDataTraveled = new DataSet<T>[cur.MaxAStarIndex];
+            blankTraveled = new DataSet<T>[cur.MaxAStarIndex];
         } else
         {
-            Array.Copy(blankTraveled, fullDataTraveled, cur.MaxAStarIndex());
+            Array.Copy(blankTraveled, fullDataTraveled, cur.MaxAStarIndex);
         }
 
         Tuple<T, int>[] set;
-        if (heuristics.Length != cur.MaxAStarIndex())
+        if (heuristics.Length != cur.MaxAStarIndex)
         {
-            heuristics = new int[cur.MaxAStarIndex()];
-            blankHeuristics = new int[cur.MaxAStarIndex()];
+            heuristics = new int[cur.MaxAStarIndex];
+            blankHeuristics = new int[cur.MaxAStarIndex];
         } else
         {
-            Array.Copy(blankHeuristics, heuristics, cur.MaxAStarIndex());
+            Array.Copy(blankHeuristics, heuristics, cur.MaxAStarIndex);
         }
         DataSet<T> curTest = new DataSet<T>(cur, -1, 0, 0);
         fullDataTraveled[cur.AStarIndex]= curTest;
