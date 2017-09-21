@@ -1,16 +1,20 @@
 ﻿using Priority_Queue;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 public class AStarPathfinder<T> where T : class, IAstarNode<T>
 {
 
-    private FastPriorityQueue<DataSet<T>> orderedTestList;
+    private const int MUTEX_TIMEOUT = 5000;
+
+    private FastPriorityQueue<DataNode<T>> orderedTestList;
     private static AStarPathfinder<T> _instance;
-    private List<T> visited;
     private DataSet<T>[] fullDataTraveled=null;
 
-    private IComparer<DataSet<T>> Comparer;
+    private Mutex mut = new Mutex();
+
+    private IComparer<DataNode<T>> Comparer;
 
     /// <summary>
     /// Get an instance of the pathfinder. The tile should be passed as a function
@@ -28,9 +32,8 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
 
     private AStarPathfinder()
     {
-        orderedTestList = new FastPriorityQueue<DataSet<T>>(16);
-        visited = new List<T>();
-        Comparer = Comparer<DataSet<T>>.Default;
+        orderedTestList = new FastPriorityQueue<DataNode<T>>(16);
+        Comparer = Comparer<DataNode<T>>.Default;
     }
 
     /// <summary>
@@ -41,7 +44,15 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
     /// <returns></returns>
     public int DistanceTo(T cur, T dest, float tweakParam)
     {
-        return PopulatePath(cur, dest, tweakParam).distTraveled;
+        if (mut.WaitOne(MUTEX_TIMEOUT))
+        {
+            int ret= PopulatePath(cur, dest, tweakParam).distTraveled;
+            mut.ReleaseMutex();
+            return ret;
+        } else
+        {
+            throw new TimeoutException("Failed to obtain mutex lock");
+        }
     }
 
     /// <summary>
@@ -52,16 +63,53 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
     /// <returns></returns>
     public List<T> FindPath(T cur, T dest,float tweakParam)
     {
-        DataSet<T> curTest = PopulatePath(cur, dest, tweakParam);
-        List<T> ret = new List<T>();
-        while (curTest.prev != null)
+        if (mut.WaitOne(MUTEX_TIMEOUT))
         {
-            ret.Insert(0, curTest.current);
-            curTest = fullDataTraveled[curTest.prev.AStarIndex()];
+            DataSet<T> curTest = PopulatePath(cur, dest, tweakParam);
+            List<T> ret = new List<T>();
+            while (curTest.prevId != -1)
+            {
+                ret.Insert(0, curTest.current);
+                curTest = fullDataTraveled[curTest.prevId];
+            }
+            mut.ReleaseMutex();
+            return ret;
         }
-        return ret;
+        else
+        {
+            throw new TimeoutException("Failed to obtain mutex lock");
+        }
     }
 
+    /// <summary>
+    /// Populates the PathInfo from the current tile to the destination. Assumes there is a path to the destination
+    /// </summary>
+    /// <param name="cur">The start tile</param>
+    /// <param name="dest">The end tile</param>
+    /// <returns>Populated PathInfo</returns>
+    public PathInfo<T> FindPathInfo(T cur, T dest, float tweakParam)
+    {
+        if (mut.WaitOne(MUTEX_TIMEOUT))
+        {
+            DataSet<T> curTest = PopulatePath(cur, dest, tweakParam);
+            List<T> path = new List<T>();
+            List<int> distance = new List<int>();
+            while (curTest.prevId != -1)
+            {
+                distance.Add(curTest.distTraveled);
+                path.Insert(0, curTest.current);
+                curTest = fullDataTraveled[curTest.prevId];
+            }
+            distance.Reverse();
+            PathInfo<T> ret = new PathInfo<T>(path, distance.ToArray());
+            mut.ReleaseMutex();
+            return ret;
+        }
+        else
+        {
+            throw new TimeoutException("Failed to obtain mutex lock");
+        }  
+    }
 
     int[] heuristics=new int[0];
     int[] blankHeuristics;
@@ -69,7 +117,6 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
     private DataSet<T> PopulatePath(T cur, T dest, float tweakParam)
     {
         orderedTestList.Clear();
-        visited.Clear();
         if (heuristics.Length != cur.MaxAStarIndex())
         {
             fullDataTraveled = new DataSet<T>[cur.MaxAStarIndex()];
@@ -79,7 +126,7 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
             Array.Copy(blankTraveled, fullDataTraveled, cur.MaxAStarIndex());
         }
 
-            Tuple<T, int>[] set;
+        Tuple<T, int>[] set;
         if (heuristics.Length != cur.MaxAStarIndex())
         {
             heuristics = new int[cur.MaxAStarIndex()];
@@ -88,60 +135,50 @@ public class AStarPathfinder<T> where T : class, IAstarNode<T>
         {
             Array.Copy(blankHeuristics, heuristics, cur.MaxAStarIndex());
         }
-        DataSet<T> curTest = new DataSet<T>(cur, null, 0, 0);
-        fullDataTraveled[cur.AStarIndex()]= curTest;
+        DataSet<T> curTest = new DataSet<T>(cur, -1, 0, 0);
+        fullDataTraveled[cur.AStarIndex]= curTest;
 
-        while (curTest.current != dest)
+        int heuristic;
+        int distanceTo;
+        while (curTest.current.AStarIndex != dest.AStarIndex)
         {
-            visited.Add(curTest.current);
             set = curTest.current.GetNeighborsAstarDistance(tweakParam);
             foreach (Tuple<T,int> neighbor in set)
             {
-                int distanceTo = curTest.distTraveled + neighbor.Second;
-                int heuristic = 0;
-                if (heuristics[neighbor.First.AStarIndex()]>0)
+                distanceTo = curTest.distTraveled + neighbor.Second;
+
+                if (heuristics[neighbor.First.AStarIndex]>0)
                 {
-                    heuristic = heuristics[neighbor.First.AStarIndex()];
+                    heuristic = heuristics[neighbor.First.AStarIndex];
                 }
                 else
                 {
                     heuristic = neighbor.First.GetAstarHeuristic(dest, tweakParam);
-                    heuristics[neighbor.First.AStarIndex()]= heuristic;
+                    heuristics[neighbor.First.AStarIndex]= heuristic;
                 }
 
-                DataSet<T> ds = new DataSet<T>(neighbor.First, curTest.current, distanceTo, distanceTo + heuristic);
-                if (fullDataTraveled[neighbor.First.AStarIndex()]!=null)
+                if (fullDataTraveled[neighbor.First.AStarIndex]!=null)
                 {
                     //A quicker path was found to the tile
-                    if (Comparer.Compare(ds, fullDataTraveled[neighbor.First.AStarIndex()]) < 0)
+                    if (distanceTo + heuristic< fullDataTraveled[neighbor.First.AStarIndex].node.Priority)
                     {
-                        orderedTestList.Remove(fullDataTraveled[neighbor.First.AStarIndex()]);
-                        fullDataTraveled[neighbor.First.AStarIndex()] = ds;
-                        Enqueue(ds);
+                        orderedTestList.UpdatePriority(fullDataTraveled[neighbor.First.AStarIndex].node, distanceTo + heuristic);
+                        fullDataTraveled[neighbor.First.AStarIndex].Repopulate(curTest.current.AStarIndex, distanceTo);
                     }
                 }
                 else
                 {
-                    fullDataTraveled[neighbor.First.AStarIndex()] = ds;
-                    Enqueue(ds);
+                    fullDataTraveled[neighbor.First.AStarIndex] = new DataSet<T>(neighbor.First, curTest.current.AStarIndex, distanceTo, distanceTo + heuristic);
+                    Enqueue(fullDataTraveled[neighbor.First.AStarIndex].node);
                 }
 
             }
-            try
-            {
-                curTest = orderedTestList.Dequeue();
-            }
-            catch (InvalidOperationException)
-            {
-                curTest = fullDataTraveled[dest.AStarIndex()];
-                break;
-            }
+            curTest = fullDataTraveled[orderedTestList.Dequeue().index];
         }
-
         return curTest;
     }
 
-    private void Enqueue(DataSet<T> ds)
+    private void Enqueue(DataNode<T> ds)
     {
         if (orderedTestList.Count==orderedTestList.MaxSize)
         {

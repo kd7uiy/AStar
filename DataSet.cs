@@ -2,35 +2,32 @@
 using System;
 using System.Text;
 
-public class DataSet<T> : FastPriorityQueueNode, IComparable<DataSet<T>>
+public class DataSet<T> where T : class, IAstarNode<T>
 {
-
     public T current;
-    public int estCost;
-    public T prev;
+    public int prevId;
     public int distTraveled;
 
-    public DataSet(T next, T current, int distTraveled, int estCost){
-        this.current=next;
-        this.estCost=estCost+distTraveled;      //Est Remaining distance+ distance already traveled
-        this.prev=current;
-        this.distTraveled = distTraveled;
+    public DataNode<T> node { get; protected set; }
 
-        Priority = estCost;
-        }
-
-    public int CompareTo(DataSet<T> other)
+    public DataSet(T current, int prevId, int distTraveled, int estCost)
     {
-        return estCost-other.estCost;
+        this.current = current;
+        node = new DataNode<T>(current.AStarIndex, estCost);
+        Repopulate(prevId, distTraveled);
     }
 
+    public void Repopulate(int prevId, int distTraveled)
+    {
+        this.prevId = prevId;
+        this.distTraveled = distTraveled;
+    }
 
     public override string ToString()
     {
         StringBuilder sb = new StringBuilder();
         sb.AppendLine("Current: " + current );
-        sb.AppendLine("estCost: " + estCost);
-        sb.AppendLine("prev: " + prev );
+        sb.AppendLine("prev: " + prevId );
         sb.AppendLine("DistTraveled: " + distTraveled);
         return sb.ToString();
     }

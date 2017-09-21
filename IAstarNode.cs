@@ -20,7 +20,7 @@ public interface IAstarNode<T>
     /// <summary>
     /// The index of the tile
     /// </summary>
-    int AStarIndex();
+    int AStarIndex { get; }
 
     /// <summary>
     /// The maxindex of the tile
